@@ -1,0 +1,19 @@
+[시작] 이미지 처리를 시작합니다...
+[정보] 이미지 크기: 225x224
+[처리] 이미지 전처리 중...
+[완료] 전처리 이미지 저장완료
+[진행] OCR 텍스트 추출 중...
+[추출완료] 텍스트: 12년 동안수학공부한한국인도 절반은늘리다는문저 8.2(2+2)=? KTGG
+[분석] 수식을 분석합니다...
+
+==================================================
+[결과] 문제 분석 결과
+==================================================
+
+연산 계산:
+   2+2 = 4
+==================================================
+
+
+[전체 OCR 텍스트]
+[OCR 오류] tesseract is not installed or it's not in your PATH. See README file for more information. [OCR 오류] tesseract is not installed or it's not in your PATH. See README file for more information. [OCR 오류] tesseract is not installed or it's not in your PATH. See README file for more information. [OCR 오류] tesseract is not installed or it's not in your PATH. See README file for more information. [OCR 오류] tesseract is not installed or it's not in your PATH. See README file for more information. [OCR 오류] tesseract is not installed or it's not in your PATH. See README file for more information.

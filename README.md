@@ -18,6 +18,36 @@ pip install -r requirements.txt
 python app.py
 ```
 
+## 트러블슈팅
+
+### ImportError: libGL.so.1: cannot open shared object file
+
+OpenCV(cv2) 가 X/GL 런타임 라이브러리를 필요로 합니다. Ubuntu/Debian 계열에서는 아래 패키지를 설치하세요.
+
+```bash
+sudo apt-get update -y
+sudo apt-get install -y --no-install-recommends libgl1 libglib2.0-0 libsm6 libxext6 libxrender1
+```
+
+설치 후 `python -c "import cv2; print(cv2.__version__)"` 가 정상 출력되는지 확인한 뒤 앱을 다시 실행하세요.
+
+### [OCR 오류] tesseract is not installed or it's not in your PATH
+
+Tesseract OCR 엔진이 OS에 설치되어 있지 않거나 PATH에 없습니다. Ubuntu/Debian 계열에서 설치:
+
+```bash
+sudo apt-get update -y
+sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
+```
+
+설치 확인:
+
+```bash
+python -c "import pytesseract; print(pytesseract.get_tesseract_version())"
+```
+
+다국어가 필요하면 `tesseract-ocr-kor` 등 추가 언어 패키지를 설치하세요.
+
 브라우저에서: http://127.0.0.1:5000
 
 ## 기능
