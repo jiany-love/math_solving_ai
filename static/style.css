@@ -1,5 +1,5 @@
 /* 기본 레이아웃 */
-body { font-family: 'Pretendard', system-ui, sans-serif; background:#f5f7fa; color:#222; margin:0; }
+body { font-family: 'Pretendard', system-ui, sans-serif; background:#f5f7fa; color:#222; margin:0;}
 .container { max-width:1100px; margin:40px auto; background:#fff; padding:30px 40px; border-radius:14px; box-shadow:0 6px 18px rgba(0,0,0,0.08); }
 
 h1 { margin-top:0; font-size:2rem; letter-spacing:-0.5px; }
