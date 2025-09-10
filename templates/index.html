@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>수학 문제 풀이 AI 서비스</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="container">
+        <h1>🧮 수학 문제 풀이 AI</h1>
+        <p class="subtitle">이미지를 업로드하면 자동으로 OCR + 분석을 수행합니다.</p>
+
+        <form method="post" enctype="multipart/form-data" class="upload-box">
+                <input type="file" name="file" accept=".png,.jpg,.jpeg" required />
+                <button type="submit">업로드 & 분석</button>
+        </form>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <ul class="flash-messages">
+                    {% for m in messages %}<li>{{ m }}</li>{% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
+        {% if uploaded_image %}
+        <section class="panel">
+                <h2>📤 업로드된 원본</h2>
+                <img src="{{ url_for('static', filename=uploaded_image) }}" alt="업로드 이미지" class="preview" />
+        </section>
+        {% endif %}
+
+        {% if result_images %}
+        <section class="panel">
+                <h2>🖼️ 처리된 결과 이미지들</h2>
+                <div class="image-grid">
+                        {% for img in result_images %}
+                            <figure>
+                                <img src="{{ url_for('static', filename=img) }}" alt="result" />
+                                <figcaption>{{ img.split('/')[-1] }}</figcaption>
+                            </figure>
+                        {% endfor %}
+                </div>
+        </section>
+        {% endif %}
+
+        {% if ocr_text %}
+        <section class="panel">
+                <h2>🔍 OCR 전체 텍스트</h2>
+                <pre class="code-block">{{ ocr_text }}</pre>
+        </section>
+        {% endif %}
+
+        {% if math_regions %}
+        <section class="panel">
+                <h2>📌 수학 영역 (라인별)</h2>
+                <table class="regions">
+                        <thead>
+                            <tr><th>#</th><th>텍스트</th><th>영역</th></tr>
+                        </thead>
+                        <tbody>
+                        {% for r in math_regions %}
+                            <tr>
+                                <td>{{ r.line_number }}</td>
+                                <td>{{ r.text }}</td>
+                                <td>{{ r.region }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                </table>
+        </section>
+        {% endif %}
+
+        {% if solver_log %}
+        <section class="panel">
+                <h2>🧾 Solver 실행 로그</h2>
+                <details open>
+                        <summary>로그 펼치기/접기</summary>
+                        <pre class="log">{{ solver_log }}</pre>
+                </details>
+                {% if log_file %}
+                <p><a href="{{ url_for('get_log', logname=log_file.split('/')[-1]) }}" download>로그 파일 다운로드</a></p>
+                {% endif %}
+        </section>
+        {% endif %}
+
+        <footer>
+                <p>© 2025 Math AI Service</p>
+        </footer>
+</div>
+</body>
+</html>
