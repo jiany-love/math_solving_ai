@@ -1,4 +1,24 @@
-# image.py - 개선된 OCR 이미지 처리 모듈
+"""image.py - 개선된 OCR 이미지 처리 모듈
+
+핵심 기능:
+1. 전처리 (노이즈 제거, 대비 향상, 이진화, 모폴로지)로 텍스트 대비 극대화
+2. MSER + 윤곽선 기반의 하이브리드 텍스트 영역 검출 후 IoU 기반 중복 제거
+3. 각 검출 영역에 대해 Tesseract OCR 적용 (한/영 혼용 허용)
+4. 검출 결과를 영역 정보(list[dict])와 전체 텍스트로 구조화 반환
+5. 시각화 이미지(전처리 결과, 검출 영역 박스)를 파일로 저장하여 프론트엔드가 활용 가능
+
+주요 설계 메모:
+- pytesseract 미설치 환경에서도 모듈 import 자체는 실패하지 않도록 try/except 처리
+- 경량화 목적으로 EasyOCR 등 무거운 의존성 없이 Tesseract 위주 사용
+- 작은 영역 노이즈를 제거하면서도 수식 내 기호 깨짐을 최소화하기 위해 커널 크기를 작게 유지
+
+반환 데이터 예시 (get_math_regions):
+[
+    { 'line_number': 1, 'region': (x,y,w,h), 'area': int, 'text': '2x + 3' },
+    ...
+], "2x + 3 ..." (전체 텍스트)
+"""
+
 import cv2
 import numpy as np
 import os
@@ -14,42 +34,51 @@ except ImportError:
     print("   그리고 Tesseract OCR 엔진도 설치해야 합니다.")
 
 class ImageProcessor:
+    """OCR 전처리 + 영역 검출 + 텍스트 추출 담당 클래스."""
+
     def __init__(self):
         print("[설정] 이미지 처리기 초기화")
         if not TESSERACT_AVAILABLE:
             print("⚠️ OCR 기능이 비활성화되었습니다.")
     
     def preprocess_image(self, image):
-        """개선된 이미지 전처리"""
+        """기본 전처리 파이프라인 (검출용).
+
+        Steps:
+          1) Grayscale
+          2) Gaussian Blur (경미한 노이즈 제거)
+          3) Adaptive Threshold (불균일 조명 보정)
+          4) Morph Close (문자 영역 뭉침 강화)
+          5) Morph Open (작은 노이즈 제거)
+        """
         print("[처리] 이미지 전처리 시작")
-        
         # 1. 그레이스케일 변환
         if len(image.shape) == 3:
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         else:
             gray = image
-        
         # 2. 가우시안 블러로 노이즈 제거
         blurred = cv2.GaussianBlur(gray, (3, 3), 0)
-        
         # 3. 적응적 이진화 (더 나은 텍스트 분리)
         binary = cv2.adaptiveThreshold(
             blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
             cv2.THRESH_BINARY, 11, 2
         )
-        
         # 4. 텍스트 영역 강화를 위한 모폴로지 연산
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
         morphology = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
-        
         # 5. 작은 노이즈 제거
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 1))
         cleaned = cv2.morphologyEx(morphology, cv2.MORPH_OPEN, kernel)
-        
         return cleaned
     
     def preprocess_for_ocr(self, image):
-        """OCR을 위한 특별한 전처리"""
+        """OCR 정확도 향상을 위한 고급 전처리.
+
+        - 크기 확대: 작은 글자 세부 정보 확보
+        - CLAHE: 지역 대비 향상
+        - Otsu Threshold: 전역 이진화로 뚜렷한 경계 확보
+        """
         # 1. 그레이스케일 변환
         if len(image.shape) == 3:
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -75,7 +104,11 @@ class ImageProcessor:
         return binary
     
     def extract_text_from_region(self, image, bbox):
-        """특정 영역에서 텍스트 추출"""
+        """개별 영역 OCR.
+
+        bbox: (x, y, w, h)
+        패딩을 더해 경계 클리핑으로 인한 글자 손실을 줄인다.
+        """
         if not TESSERACT_AVAILABLE:
             return "[OCR 불가] pytesseract가 설치되지 않음"
         
@@ -112,7 +145,12 @@ class ImageProcessor:
             return f"[OCR 오류] {str(e)}"
     
     def find_text_regions_advanced(self, preprocessed, original_image):
-        """개선된 텍스트 영역 검출"""
+        """하이브리드 텍스트 영역 검출 (MSER + Contours).
+
+        - 두 기법의 후보를 통합 후 IoU 기반 중복 제거
+        - 지나치게 크거나 작은 영역 필터링
+        - y, x 순 정렬로 문서 위→아래 흐름 유지
+        """
         regions = []
         
         # 1. MSER (Maximally Stable Extremal Regions) 검출기 사용
@@ -181,7 +219,11 @@ class ImageProcessor:
         return unique_regions
     
     def extract_text(self, image_path):
-        """개선된 텍스트 영역 추출 및 OCR - 메인 함수"""
+        """전체 처리 메인 함수.
+
+        반환: OCR 결과 리스트 (각 항목: bbox, text, area, line_number)
+        실패 시 빈 리스트 반환 (상위 호출부 안정성 확보)
+        """
         try:
             # 이미지 로드 (한글 경로 지원)
             img_array = np.fromfile(image_path, np.uint8)
@@ -266,49 +308,19 @@ class ImageProcessor:
 
 # 함수형 인터페이스 (간편 사용용)
 def process_image(image_path):
-    """
-    이미지에서 텍스트 영역을 추출하고 OCR을 실행하는 함수
-    
-    Args:
-        image_path (str): 이미지 파일 경로
-    
-    Returns:
-        list: OCR 결과들
-        [
-            {
-                'bbox': (x, y, w, h),  # 영역 좌표
-                'text': str,           # 인식된 텍스트
-                'area': int,           # 영역 크기
-                'line_number': int     # 줄 번호
-            },
-            ...
-        ]
+    """파일 경로 단위의 간단 함수형 헬퍼.
+
+    내부적으로 `ImageProcessor` 인스턴스를 생성해 `extract_text` 호출.
+    테스트/재사용 편의성을 위해 제공.
     """
     processor = ImageProcessor()
     return processor.extract_text(image_path)
 
 
 def get_math_regions(image_path):
-    """
-    이미지에서 수학 표현식 영역을 추출하고 텍스트를 인식하는 함수
-    
-    Args:
-        image_path (str): 이미지 파일 경로
-    
-    Returns:
-        tuple: (수학 표현식 영역들의 정보, 전체 텍스트)
-        (
-            [
-                {
-                    'line_number': int,      # 줄 번호
-                    'region': (x, y, w, h),  # 영역 좌표
-                    'area': int,             # 영역 크기
-                    'text': str              # 인식된 텍스트
-                },
-                ...
-            ],
-            str  # 전체 텍스트
-        )
+    """수학(텍스트) 영역 정보 및 전체 텍스트 반환.
+
+    빈 결과일 경우 ([], "") 형식 보장 → 호출 측에서 null 체크 로직 단순화.
     """
     processor = ImageProcessor()
     ocr_results = processor.extract_text(image_path)

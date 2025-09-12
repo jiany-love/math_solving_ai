@@ -1,3 +1,16 @@
+"""simple_math_solver.py
+
+경량 수학 문제 처리기:
+    - EasyOCR 로 이미지에서 한/영 텍스트 추출
+    - 정규식 기반으로 등식/연산/좌표/숫자 패턴 탐지
+    - 간단 계산 및 거리 계산 수행 후 콘솔 출력
+
+특징/제한:
+    - 안전하지 않은 eval 사용 (프로토타입 용도)
+    - 수식 파싱/오차 처리 단순
+    - torch/easyocr 미설치 환경에서는 상위(app.py)에서 import 예외 처리
+"""
+
 import os
 import cv2
 import numpy as np
@@ -5,17 +18,22 @@ import easyocr
 import re
 
 class SimpleMathSolver:
+    """가벼운 OCR + 규칙 기반 수학 분석기."""
+
     def __init__(self):
         print("간단한 수학 문제 풀이 시스템")
         print("="*50)
-        
-        # OCR 초기화
+        # EasyOCR 초기화 (모델 다운로드 캐싱 후 재사용)
         print("[설정] OCR 초기화 중...")
         self.reader = easyocr.Reader(['ko', 'en'])
         print("[설정] OCR 초기화 완료")
 
     def preprocess_image(self, image):
-        """이미지 전처리"""
+        """OCR 품질 향상을 위한 기본 전처리.
+
+        흐름: Grayscale -> Blur -> Adaptive Threshold.
+        단순 계산용이므로 aggressive 한 연산은 피함.
+        """
         print("[처리] 이미지 전처리 중...")
         
         if len(image.shape) == 3:
@@ -32,7 +50,12 @@ class SimpleMathSolver:
         return binary
 
     def extract_and_solve(self, image_path):
-        """이미지에서 텍스트 추출 및 수식 계산"""
+        """엔드투엔드 처리 (파일 경로 입력).
+
+        1) 이미지 로드 / 전처리 저장
+        2) OCR 수행 -> 텍스트 합치기
+        3) 패턴 탐지 후 계산/검증 출력
+        """
         try:
             print("[시작] 이미지 처리를 시작합니다...")
             
@@ -74,7 +97,7 @@ class SimpleMathSolver:
             print(f"[오류] 처리 중 오류: {str(e)}")
 
     def analyze_and_solve(self, text):
-        """텍스트에서 수식 추출 및 계산"""
+        """추출된 텍스트에 대해 규칙 기반 분석 & 결과 출력."""
         print("\n" + "="*50)
         print("[결과] 문제 분석 결과")
         print("="*50)
@@ -137,7 +160,7 @@ class SimpleMathSolver:
         print("="*50)
 
     def verify_equation(self, equation):
-        """등식 검증"""
+        """등식 좌/우 계산 후 오차 허용 범위 내 동일 여부 판단."""
         try:
             eq = equation.replace('×', '*').replace('÷', '/')
             left, right = eq.split('=')
@@ -156,7 +179,7 @@ class SimpleMathSolver:
             print(f"   {equation} -> 계산불가")
 
     def calculate_operation(self, operation):
-        """연산 계산"""
+        """단순 이항/복합 연산 수행."""
         try:
             op = operation.replace('×', '*').replace('÷', '/')
             result = eval(op)
@@ -165,7 +188,7 @@ class SimpleMathSolver:
             print(f"   {operation} -> 계산불가")
 
     def extract_coordinate(self, coord_text):
-        """좌표 추출"""
+        """'(x,y)' 패턴 정규식 추출 -> (int,int)."""
         try:
             match = re.search(r'\(\s*([-]?\d+)\s*,\s*([-]?\d+)\s*\)', coord_text)
             if match:
@@ -175,13 +198,13 @@ class SimpleMathSolver:
         return None
 
     def calculate_distance(self, point1, point2):
-        """거리 계산"""
+        """유클리드 거리 sqrt((dx)^2 + (dy)^2)."""
         x1, y1 = point1
         x2, y2 = point2
         return ((x2-x1)**2 + (y2-y1)**2)**0.5
 
     def run(self):
-        """실행"""
+        """예제 이미지 파일 기반 단일 실행 편의 함수."""
         current_dir = os.path.dirname(os.path.abspath(__file__))
         image_path = os.path.join(current_dir, "example.png")
         
